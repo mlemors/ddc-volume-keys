@@ -16,11 +16,24 @@ export SWIFTPM_MODULECACHE_OVERRIDE="$ROOT/.build/cache/clang"
 
 swift_args=(--disable-sandbox)
 
+xcode_developer_dir="${DEVELOPER_DIR:-}"
+if [[ -z "$xcode_developer_dir" ]]; then
+  xcode_developer_dir="$(xcode-select -p 2>/dev/null || true)"
+fi
+
 # A Command Line Tools update can temporarily pair a newer compiler with an
-# incompatible default SDK. Prefer the known-compatible SDK when available.
+# incompatible default SDK. Use Xcode's SDK when Xcode is active; otherwise
+# prefer the known-compatible Command Line Tools SDK when available.
 readonly fallback_sdk="/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk"
-if [[ -z "${SDKROOT:-}" && -d "$fallback_sdk" ]]; then
-  export SDKROOT="$fallback_sdk"
+if [[ -z "${SDKROOT:-}" ]]; then
+  if [[ "$xcode_developer_dir" == */Xcode*.app/Contents/Developer ]]; then
+    xcode_sdk="$(DEVELOPER_DIR="$xcode_developer_dir" xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+    if [[ -n "$xcode_sdk" && -d "$xcode_sdk" ]]; then
+      export SDKROOT="$xcode_sdk"
+    fi
+  elif [[ -d "$fallback_sdk" ]]; then
+    export SDKROOT="$fallback_sdk"
+  fi
 fi
 if [[ -n "${SDKROOT:-}" ]]; then
   swift_args+=(--sdk "$SDKROOT")
@@ -29,11 +42,6 @@ fi
 echo "==> Running checks"
 echo "==> Running portable unit and fail-safe checks"
 swift run "${swift_args[@]}" "$PRODUCT"Verification
-
-xcode_developer_dir="${DEVELOPER_DIR:-}"
-if [[ -z "$xcode_developer_dir" ]]; then
-  xcode_developer_dir="$(xcode-select -p 2>/dev/null || true)"
-fi
 
 if [[ -f "$xcode_developer_dir/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework/Headers/XCTest.h" ]]; then
   echo "==> Running XCTest"
