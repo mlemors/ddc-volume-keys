@@ -52,11 +52,10 @@ brew install m1ddc
 
 ## Build
 
-The project intentionally has one build entry point. With a full Xcode
-installation it runs the XCTest suite and the fail-safe verification suite,
-then compiles a release binary, assembles the app bundle, and verifies its
-signature. On a Command Line Tools-only machine, XCTest is skipped with a
-warning and the fail-safe verification suite still runs:
+The project intentionally has one build entry point. It always runs the
+portable unit and fail-safe verification suite, then compiles a release binary,
+assembles the app bundle, and verifies its signature. With a full Xcode
+installation it also runs the XCTest suite:
 
 ```sh
 ./build.sh

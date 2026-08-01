@@ -27,21 +27,23 @@ if [[ -n "${SDKROOT:-}" ]]; then
 fi
 
 echo "==> Running checks"
+echo "==> Running portable unit and fail-safe checks"
+swift run "${swift_args[@]}" "$PRODUCT"Verification
+
 xcode_developer_dir="${DEVELOPER_DIR:-}"
 if [[ -z "$xcode_developer_dir" ]]; then
   xcode_developer_dir="$(xcode-select -p 2>/dev/null || true)"
 fi
 
 if [[ -f "$xcode_developer_dir/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework/Headers/XCTest.h" ]]; then
+  echo "==> Running XCTest"
   swift test "${swift_args[@]}"
 elif [[ "${CI:-}" == "true" ]]; then
   echo "XCTest is required in CI but no full Xcode installation was found." >&2
   exit 1
 else
-  echo "==> Skipping XCTest (full Xcode is not installed)"
+  echo "==> XCTest not available without full Xcode; portable checks above are the local test run"
 fi
-
-swift run "${swift_args[@]}" "$PRODUCT"Verification
 
 echo "==> Building release binary"
 swift build "${swift_args[@]}" -c release --product "$PRODUCT"
