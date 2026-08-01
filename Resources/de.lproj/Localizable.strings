@@ -1,0 +1,32 @@
+"menu.about" = "Über DDCVolumeKeys";
+"menu.approveLaunchAtLogin" = "Anmeldestart genehmigen …";
+"menu.copy" = "Kopieren";
+"menu.edit" = "Bearbeiten";
+"menu.launchAtLogin" = "Beim Anmelden starten";
+"menu.quit" = "Beenden";
+"menu.selectAll" = "Alles auswählen";
+
+"status.accessibilityRequired" = "Bedienungshilfen für DDCVolumeKeys erforderlich";
+"status.active" = "DDCVolumeKeys aktiv";
+"status.checking" = "DDC-Monitor wird geprüft";
+
+"error.communicationFailed" = "DDC-Kommunikation fehlgeschlagen";
+"error.monitorUnreachable" = "Monitor nicht erreichbar";
+"error.multipleDisplays" = "Mehrere DDC-Monitore gefunden";
+"error.muteFailed" = "Stummschaltung fehlgeschlagen";
+"error.noDisplay" = "Kein DDC-Monitor gefunden";
+"error.noUniqueDisplay" = "Kein eindeutiger DDC-Monitor verfügbar";
+"error.timedOut" = "m1ddc hat nicht rechtzeitig geantwortet";
+"error.toolMissing" = "m1ddc ist nicht installiert";
+"error.volumeReadFailed" = "Lautstärke konnte nicht gelesen werden";
+
+"alert.launchAtLoginFailed" = "Der automatische Start konnte nicht geändert werden: %@";
+
+"diagnostics.accessibilityTrusted" = "Bedienungshilfen erlaubt:";
+"diagnostics.displays" = "Monitore:";
+"diagnostics.eventTapRunning" = "Event-Tap aktiv:";
+"diagnostics.launchAtLogin" = "Beim Anmelden starten:";
+"diagnostics.none" = "keine";
+"diagnostics.runtime" = "Laufzeit:";
+"diagnostics.selected" = "Ausgewählt:";
+"diagnostics.unknown" = "unbekannt";

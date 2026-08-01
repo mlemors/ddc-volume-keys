@@ -1,0 +1,32 @@
+"menu.about" = "About DDCVolumeKeys";
+"menu.approveLaunchAtLogin" = "Approve Launch at Login…";
+"menu.copy" = "Copy";
+"menu.edit" = "Edit";
+"menu.launchAtLogin" = "Launch at Login";
+"menu.quit" = "Quit";
+"menu.selectAll" = "Select All";
+
+"status.accessibilityRequired" = "Accessibility permission required for DDCVolumeKeys";
+"status.active" = "DDCVolumeKeys active";
+"status.checking" = "Checking DDC display";
+
+"error.communicationFailed" = "DDC communication failed";
+"error.monitorUnreachable" = "Display is not reachable";
+"error.multipleDisplays" = "Multiple DDC displays found";
+"error.muteFailed" = "Could not change mute state";
+"error.noDisplay" = "No DDC display found";
+"error.noUniqueDisplay" = "No unique DDC display available";
+"error.timedOut" = "m1ddc did not respond in time";
+"error.toolMissing" = "m1ddc is not installed";
+"error.volumeReadFailed" = "Could not read the volume";
+
+"alert.launchAtLoginFailed" = "Launch at login could not be changed: %@";
+
+"diagnostics.accessibilityTrusted" = "Accessibility trusted:";
+"diagnostics.displays" = "Displays:";
+"diagnostics.eventTapRunning" = "Event tap running:";
+"diagnostics.launchAtLogin" = "Launch at login:";
+"diagnostics.none" = "none";
+"diagnostics.runtime" = "Runtime:";
+"diagnostics.selected" = "Selected:";
+"diagnostics.unknown" = "unknown";
