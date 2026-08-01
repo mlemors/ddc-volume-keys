@@ -26,6 +26,11 @@ let package = Package(
       dependencies: ["DDCVolumeKeysCore"],
       path: "Sources/DDCVolumeKeysVerification"
     ),
+    .testTarget(
+      name: "DDCVolumeKeysTests",
+      dependencies: ["DDCVolumeKeysCore"],
+      path: "Tests/DDCVolumeKeysTests"
+    ),
   ],
   swiftLanguageModes: [.v5]
 )

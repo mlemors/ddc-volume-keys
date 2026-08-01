@@ -8,13 +8,22 @@ You need macOS 13 or later, Swift 6, and an Apple Silicon Mac. Install
 [`m1ddc`](https://github.com/waydabber/m1ddc) to test against a physical
 DDC-capable display.
 
-Build the app and run all checks with:
+Build the app and run all XCTest and fail-safe verification checks with:
 
 ```sh
 ./build.sh
 ```
 
 The resulting application is written to `dist/DDCVolumeKeys.app`.
+
+With a full Xcode installation, the XCTest target can also be run directly:
+
+```sh
+swift test
+```
+
+The standalone `swift test` command requires Xcode because the Command Line
+Tools package does not include the XCTest framework headers.
 
 ## Pull requests
 

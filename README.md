@@ -52,9 +52,11 @@ brew install m1ddc
 
 ## Build
 
-The project intentionally has one build entry point. It runs the verification
-suite, compiles a release binary, assembles the app bundle, and verifies its
-signature:
+The project intentionally has one build entry point. With a full Xcode
+installation it runs the XCTest suite and the fail-safe verification suite,
+then compiles a release binary, assembles the app bundle, and verifies its
+signature. On a Command Line Tools-only machine, XCTest is skipped with a
+warning and the fail-safe verification suite still runs:
 
 ```sh
 ./build.sh
@@ -124,6 +126,7 @@ handling so only one app intercepts those keys.
 Sources/DDCVolumeKeys/              Core DDC and command logic
 Sources/DDCVolumeKeysApp/           AppKit menu bar application
 Sources/DDCVolumeKeysVerification/  Executable verification suite
+Tests/DDCVolumeKeysTests/            XCTest unit and service tests
 Resources/                          Metadata, app icon, and localizations
 .github/workflows/                  Continuous integration
 build.sh                            Build, verify, package, and sign
