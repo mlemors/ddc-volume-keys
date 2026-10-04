@@ -217,9 +217,43 @@ final class DDCServiceTests: XCTestCase {
     wait(for: [connected], timeout: 2)
     service.changeVolume(by: 10)
 
-    XCTAssertTrue(runner.waitFor(["display", uuid, "set", "volume", "5"]))
+    XCTAssertTrue(runner.waitFor(["display", uuid, "set", "volume", "2"]))
     XCTAssertFalse(runner.saw(["display", uuid, "set", "volume", "60"]))
     XCTAssertFalse(runner.saw(["display", uuid, "set", "volume", "100"]))
+  }
+
+  func testFineControlRangeAlwaysChangesByOne() {
+    let fixture = makeDefaults()
+    let defaults = fixture.defaults
+    defer { defaults.removePersistentDomain(forName: fixture.suite) }
+    defaults.set("/usr/bin/true", forKey: "M1DDCPath")
+    defaults.set(5, forKey: "LastKnownVolume")
+    let runner = standardRunner(uuid: uuid, currentVolume: 5)
+    let service = DDCService(settings: SettingsStore(defaults: defaults), runner: runner)
+
+    discover(service)
+    connect(service)
+    service.changeVolume(by: 4)
+
+    XCTAssertTrue(runner.waitFor(["display", uuid, "set", "volume", "6"]))
+    XCTAssertFalse(runner.saw(["display", uuid, "set", "volume", "9"]))
+  }
+
+  func testDescendingAccelerationStopsAtTenBeforeFineControl() {
+    let fixture = makeDefaults()
+    let defaults = fixture.defaults
+    defer { defaults.removePersistentDomain(forName: fixture.suite) }
+    defaults.set("/usr/bin/true", forKey: "M1DDCPath")
+    defaults.set(14, forKey: "LastKnownVolume")
+    let runner = standardRunner(uuid: uuid, currentVolume: 14)
+    let service = DDCService(settings: SettingsStore(defaults: defaults), runner: runner)
+
+    discover(service)
+    connect(service)
+    service.changeVolume(by: -4)
+
+    XCTAssertTrue(runner.waitFor(["display", uuid, "set", "volume", "10"]))
+    XCTAssertFalse(runner.saw(["display", uuid, "set", "volume", "8"]))
   }
 
   func testFailedDiscoveryStaysDisconnected() {
@@ -248,7 +282,78 @@ final class DDCServiceTests: XCTestCase {
     wait(for: [completion], timeout: 2)
   }
 
-  private func standardRunner(uuid: String) -> FakeRunner {
+  private func connect(_ service: DDCService) {
+    let connected = expectation(description: "service connected")
+    service.onStateChange = { state in
+      if case .connected = state { connected.fulfill() }
+    }
+    service.probe()
+    wait(for: [connected], timeout: 2)
+    service.onStateChange = nil
+  }
+
+  func testRefreshPreservesConnectionAndEveryQueuedPress() {
+    let fixture = makeDefaults()
+    defer { fixture.defaults.removePersistentDomain(forName: fixture.suite) }
+    fixture.defaults.set("/usr/bin/true", forKey: "M1DDCPath")
+    let entered = DispatchSemaphore(value: 0)
+    let release = DispatchSemaphore(value: 0)
+    var discoveries = 0
+    var volume = 4
+    let runner = FakeRunner { [uuid] args in
+      var output = "100"
+      if args == ["display", "list"] {
+        discoveries += 1
+        if discoveries == 2 {
+          entered.signal()
+          _ = release.wait(timeout: .now() + 2)
+        }
+        output = "[1] Dell (\(uuid))"
+      } else if args.suffix(2).elementsEqual(["get", "volume"]) {
+        output = String(volume)
+      } else if args.contains("set") {
+        volume = Int(args.last!)!
+      }
+      return CommandResult(status: 0, standardOutput: output, standardError: "", timedOut: false)
+    }
+    let service = DDCService(settings: SettingsStore(defaults: fixture.defaults), runner: runner)
+    discover(service)
+    connect(service)
+    let refreshed = expectation(description: "refresh completed")
+    service.discoverDisplays { _ in refreshed.fulfill() }
+    XCTAssertEqual(entered.wait(timeout: .now() + 2), .success)
+    XCTAssertTrue(service.isConnected)
+    service.changeVolume(by: 4)
+    service.changeVolume(by: 4)
+    service.changeVolume(by: 4)
+    release.signal()
+    wait(for: [refreshed], timeout: 2)
+    XCTAssertTrue(runner.waitFor(["display", uuid, "set", "volume", "7"]))
+    XCTAssertTrue(runner.saw(["display", uuid, "set", "volume", "5"]))
+    XCTAssertTrue(runner.saw(["display", uuid, "set", "volume", "6"]))
+  }
+
+  func testProbeRejectsSuccessfulCommandWithoutVolume() {
+    let fixture = makeDefaults()
+    defer { fixture.defaults.removePersistentDomain(forName: fixture.suite) }
+    fixture.defaults.set("/usr/bin/true", forKey: "M1DDCPath")
+    let runner = FakeRunner { [uuid] args in
+      let output = args == ["display", "list"] ? "[1] Dell (\(uuid))"
+        : args.contains("max") ? "100" : "unreadable"
+      return CommandResult(status: 0, standardOutput: output, standardError: "", timedOut: false)
+    }
+    let service = DDCService(settings: SettingsStore(defaults: fixture.defaults), runner: runner)
+    discover(service)
+    let failed = expectation(description: "invalid volume rejected")
+    service.onStateChange = { state in
+      if state == .unavailable(reason: .volumeReadFailed) { failed.fulfill() }
+    }
+    service.probe()
+    wait(for: [failed], timeout: 2)
+    XCTAssertFalse(service.isConnected)
+  }
+
+  private func standardRunner(uuid: String, currentVolume: Int = 4) -> FakeRunner {
     FakeRunner { args in
       if args == ["display", "list"] {
         return CommandResult(status: 0, standardOutput: "[1] Dell (\(uuid))\n", standardError: "", timedOut: false)
@@ -257,7 +362,12 @@ final class DDCServiceTests: XCTestCase {
         return CommandResult(status: 0, standardOutput: "100\n", standardError: "", timedOut: false)
       }
       if args.suffix(2).elementsEqual(["get", "volume"]) {
-        return CommandResult(status: 0, standardOutput: "4\n", standardError: "", timedOut: false)
+        return CommandResult(
+          status: 0,
+          standardOutput: "\(currentVolume)\n",
+          standardError: "",
+          timedOut: false
+        )
       }
       return CommandResult(status: 0, standardOutput: "Writing 5\n", standardError: "", timedOut: false)
     }

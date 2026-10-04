@@ -30,6 +30,7 @@ volume can be read through DDC.
 - Automatically discovers volume-capable DDC displays
 - Filters internal and pseudo displays without DDC volume support
 - Supports volume up, volume down, and mute
+- Only intercepts keys while the DDC display is the active macOS output
 - Never changes the macOS audio output device
 - Runs as a lightweight menu bar agent
 - Can launch automatically at login
@@ -54,8 +55,8 @@ brew install m1ddc
 
 The project intentionally has one build entry point. It always runs the
 portable unit and fail-safe verification suite, then compiles a release binary,
-assembles the app bundle, and verifies its signature. With a full Xcode
-installation it also runs the XCTest suite:
+assembles the app bundle, and verifies its stable code signature. With a full
+Xcode installation it also runs the XCTest suite:
 
 ```sh
 ./build.sh
@@ -69,9 +70,9 @@ To use a stable signing identity, pass its Keychain name:
 DDC_VOLUME_KEYS_SIGN_IDENTITY="Apple Development: Your Name" ./build.sh
 ```
 
-Without that variable, the app is ad-hoc signed. Ad-hoc signatures are suitable
-for local testing, but macOS may require Accessibility permission again after
-each rebuild.
+If no identity is passed, the build uses the local `DDCVolumeKeys Local
+Signing` identity. This keeps the macOS Accessibility authorization attached
+to the app across local rebuilds.
 
 If `m1ddc` is installed somewhere other than `/opt/homebrew/bin/m1ddc` or
 `/usr/local/bin/m1ddc`, configure its path before launching the app:
@@ -91,18 +92,30 @@ ditto dist/DDCVolumeKeys.app /Applications/DDCVolumeKeys.app
 open /Applications/DDCVolumeKeys.app
 ```
 
+For local rebuilds, use the installer script instead of replacing the app in
+Finder. It quits the running copy, resets the obsolete Accessibility record,
+installs the new build, and launches it:
+
+```sh
+./install.sh
+```
+
+The reset is intentionally limited to DDCVolumeKeys. macOS still requires the
+user to approve the newly installed build once in **System Settings → Privacy &
+Security → Accessibility**.
+
 On first launch, enable DDCVolumeKeys under **System Settings → Privacy &
 Security → Accessibility**.
 
-If a rebuilt app cannot reuse an old Accessibility entry, quit the app and
-reset that permission once:
+If migrating from an older ad-hoc build, the installer resets that old
+Accessibility record once:
 
 ```sh
-tccutil reset Accessibility de.mlemors.DDCVolumeKeys
+./install.sh
 ```
 
-Then launch the newly built app and enable it again. A stable signing identity
-prevents this from recurring during normal development.
+Then launch the newly built app and enable it again. Stable signing prevents
+this from recurring during normal development.
 
 If MonitorControl continues to manage brightness, disable its volume-key
 handling so only one app intercepts those keys.

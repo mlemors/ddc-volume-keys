@@ -69,13 +69,20 @@ for localization in "$ROOT"/Resources/*.lproj(/); do
 done
 
 signing_identity="${DDC_VOLUME_KEYS_SIGN_IDENTITY:-}"
-if [[ -n "$signing_identity" ]]; then
-  echo "==> Signing with: $signing_identity"
-  /usr/bin/codesign --force --timestamp=none --sign "$signing_identity" "$APP"
-else
-  echo "==> Ad-hoc signing (set DDC_VOLUME_KEYS_SIGN_IDENTITY for a stable identity)"
-  /usr/bin/codesign --force --sign - "$APP"
+if [[ -z "$signing_identity" ]]; then
+  signing_identity="$({
+    /usr/bin/security find-identity -v -p codesigning 2>/dev/null || true
+  } | /usr/bin/awk '/DDCVolumeKeys Local Signing/ { print $2; exit }')"
 fi
+
+if [[ -z "$signing_identity" ]]; then
+  echo "No stable code-signing identity found." >&2
+  echo "Set DDC_VOLUME_KEYS_SIGN_IDENTITY or run the local signing setup." >&2
+  exit 1
+fi
+
+echo "==> Signing with: $signing_identity"
+/usr/bin/codesign --force --timestamp=none --sign "$signing_identity" "$APP"
 
 /usr/bin/codesign --verify --strict "$APP"
 echo "==> Built $APP"

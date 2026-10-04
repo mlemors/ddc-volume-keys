@@ -170,7 +170,7 @@ private func verifyService() {
   expect(waitUntil { loudService.isConnected }, "safety test connects")
   loudService.changeVolume(by: 10)
   expect(
-    waitUntil { loudRunner.saw(["display", uuid, "set", "volume", "5"]) },
+    waitUntil { loudRunner.saw(["display", uuid, "set", "volume", "2"]) },
     "implausible high readback is ignored")
   expect(
     !loudRunner.saw(["display", uuid, "set", "volume", "60"]),

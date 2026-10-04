@@ -27,7 +27,10 @@ final class MediaKeyHandler {
     self.toggleMute = toggleMute
   }
 
-  var isRunning: Bool { eventTap != nil }
+  var isRunning: Bool {
+    guard let eventTap else { return false }
+    return CGEvent.tapIsEnabled(tap: eventTap)
+  }
 
   @discardableResult
   func start() -> Bool {
@@ -57,6 +60,26 @@ final class MediaKeyHandler {
     eventTap = tap
     runLoopSource = source
     return true
+  }
+
+  @discardableResult
+  func ensureRunning() -> Bool {
+    guard let eventTap else {
+      return start()
+    }
+
+    guard !CGEvent.tapIsEnabled(tap: eventTap) else { return true }
+
+    // macOS can disable a tap after a timeout or when another system
+    // component temporarily takes over event processing. Try the cheap
+    // recovery first, then recreate the tap if it remains disabled.
+    CGEvent.tapEnable(tap: eventTap, enable: true)
+    if CGEvent.tapIsEnabled(tap: eventTap) {
+      return true
+    }
+
+    stop()
+    return start()
   }
 
   func stop() {

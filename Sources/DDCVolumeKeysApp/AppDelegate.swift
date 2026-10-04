@@ -19,7 +19,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private let settings = SettingsStore()
   private lazy var ddcService = DDCService(settings: settings)
   private lazy var mediaKeyHandler = MediaKeyHandler(
-    shouldHandle: { [weak self] in self?.ddcService.isConnected == true },
+    shouldHandle: { [weak self] in
+      guard let self, self.ddcService.isConnected, let display = self.ddcService.activeDisplay
+      else { return false }
+      return AudioOutputRouting.isActiveOutput(display)
+    },
     volumeUp: { [weak self] step in self?.ddcService.changeVolume(by: step) },
     volumeDown: { [weak self] step in self?.ddcService.changeVolume(by: -step) },
     toggleMute: { [weak self] in self?.ddcService.toggleMute() }
@@ -207,7 +211,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let trusted = AXIsProcessTrustedWithOptions(options)
     accessibilityTrusted = trusted
     if trusted {
-      _ = mediaKeyHandler.isRunning || mediaKeyHandler.start()
+      _ = mediaKeyHandler.ensureRunning()
     } else {
       mediaKeyHandler.stop()
     }

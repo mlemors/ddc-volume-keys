@@ -44,13 +44,14 @@ public final class DDCService {
   private let stateLock = NSLock()
   private let changeLock = NSLock()
   private let safeMaximumVolume = 60
+  private let fineControlMaximumVolume = 10
   private let maximumVolumeChangePerCommand = 4
   private let maximumTrustedReadbackDrift = 8
 
   private var _isConnected = false
   private var _activeDisplay: DisplayInfo?
   private var activeDisplayMaximumVolume = 100
-  private var pendingVolumeChange = 0
+  private var pendingVolumeChanges: [Int] = []
   private var isDrainScheduled = false
   private var lastAudibleVolume = 1
   private var trustedVolume = 1
@@ -79,9 +80,9 @@ public final class DDCService {
   public func discoverDisplays(completion: @escaping DisplaysHandler) {
     queue.async { [weak self] in
       guard let self else { return }
-      self.invalidateActiveDisplay()
 
       guard self.ensureToolExists() else {
+        self.invalidateActiveDisplay()
         self.completeOnMain([], completion: completion)
         return
       }
@@ -103,8 +104,12 @@ public final class DDCService {
       let displays = displayMatches.map(\.display)
 
       if displays.count == 1 {
+        if self.activeDisplay?.selector != displays[0].selector {
+          self.invalidateActiveDisplay()
+        }
         self.setActiveDisplay(displays[0], maximumVolume: displayMatches[0].maximum)
       } else {
+        self.invalidateActiveDisplay()
         self.setActiveDisplay(nil)
       }
 
@@ -136,18 +141,22 @@ public final class DDCService {
       }
       guard self.activeDisplay?.selector == display.selector else { return }
 
-      if let volume = M1DDCOutputParser.integer(from: result.standardOutput) {
-        self.acceptReadbackIfPlausible(volume)
+      guard let volume = M1DDCOutputParser.integer(from: result.standardOutput),
+        (0...self.activeDisplayMaximumVolume).contains(volume)
+      else {
+        self.publish(.unavailable(reason: .volumeReadFailed))
+        return
       }
+      self.acceptReadbackIfPlausible(volume)
       self.publish(.connected)
     }
   }
 
   public func changeVolume(by delta: Int) {
-    guard isConnected else { return }
+    guard isConnected, delta != 0 else { return }
 
     let shouldSchedule = changeLock.withLock {
-      pendingVolumeChange += delta
+      pendingVolumeChanges.append(delta)
       if isDrainScheduled { return false }
       isDrainScheduled = true
       return true
@@ -196,13 +205,11 @@ public final class DDCService {
     while true {
       guard
         let delta: Int = changeLock.withLock({
-          guard pendingVolumeChange != 0 else {
+          guard !pendingVolumeChanges.isEmpty else {
             isDrainScheduled = false
             return nil
           }
-          let value = pendingVolumeChange
-          pendingVolumeChange = 0
-          return value
+          return pendingVolumeChanges.removeFirst()
         })
       else { return }
 
@@ -225,7 +232,8 @@ public final class DDCService {
         min(maximumVolumeChangePerCommand, delta)
       )
       let baseVolume = trustedBaseVolume(fromReadback: currentVolume)
-      let newVolume = safeVolume(baseVolume + boundedDelta)
+      let adjustedDelta = volumeDelta(boundedDelta, from: baseVolume)
+      let newVolume = safeVolume(baseVolume + adjustedDelta)
       let result = run(arguments: [
         "display", display.selector, "set", "volume", String(newVolume),
       ])
@@ -264,7 +272,7 @@ public final class DDCService {
 
   private func clearPendingChanges() {
     changeLock.withLock {
-      pendingVolumeChange = 0
+      pendingVolumeChanges.removeAll()
       isDrainScheduled = false
     }
   }
@@ -283,6 +291,24 @@ public final class DDCService {
 
   private func safeVolume(_ volume: Int) -> Int {
     min(max(volume, 0), min(activeDisplayMaximumVolume, safeMaximumVolume))
+  }
+
+  private func volumeDelta(_ delta: Int, from baseVolume: Int) -> Int {
+    guard delta != 0 else { return 0 }
+
+    // The lower part of the monitor's range is intentionally fine-grained:
+    // rapid key presses must not turn a single step into a jump of 2 or 4.
+    if baseVolume <= fineControlMaximumVolume {
+      return delta > 0 ? 1 : -1
+    }
+
+    // Do not jump over the fine-grained range when accelerating downward.
+    // The next press will then continue from exactly 10 in single steps.
+    if delta < 0, baseVolume + delta < fineControlMaximumVolume {
+      return fineControlMaximumVolume - baseVolume
+    }
+
+    return delta
   }
 
   private func trustedBaseVolume(fromReadback readback: Int) -> Int {
