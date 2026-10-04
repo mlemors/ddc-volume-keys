@@ -14,11 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build and verify
+        # CI artifacts are test builds, not updates for locally authorized apps.
+        env:
+          DDC_VOLUME_KEYS_SIGN_IDENTITY: "-"
         run: ./build.sh
       - name: Package build artifact
         run: ditto -c -k --keepParent dist/DDCVolumeKeys.app DDCVolumeKeys.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: DDCVolumeKeys
+          name: DDCVolumeKeys-CI-test-build
           path: DDCVolumeKeys.zip
           if-no-files-found: error

@@ -74,6 +74,11 @@ If no identity is passed, the build uses the local `DDCVolumeKeys Local
 Signing` identity. This keeps the macOS Accessibility authorization attached
 to the app across local rebuilds.
 
+GitHub Actions explicitly uses ad-hoc signing (`DDC_VOLUME_KEYS_SIGN_IDENTITY=-`)
+for its `DDCVolumeKeys-CI-test-build` artifact. These artifacts validate the build
+without uploading a private signing key. They are not updates for the locally
+signed app; `install.sh` rejects them to preserve its signing identity.
+
 If `m1ddc` is installed somewhere other than `/opt/homebrew/bin/m1ddc` or
 `/usr/local/bin/m1ddc`, configure its path before launching the app:
 
